@@ -137,6 +137,7 @@ public:
             double              Mdot() const                                                    { return m_Mdot; }
             double              Metallicity() const                                             { return m_Metallicity; }
             double              MinimumCoreMass() const                                         { return m_MinimumCoreMass; }
+            double              MixingCoreMass() const                                          { return m_MixingCoreMass; }
             double              MZAMS() const                                                   { return m_MZAMS; }
             double              Omega() const                                                   { return m_Omega; }
             double              OmegaCHE() const                                                { return m_OmegaCHE; }
@@ -343,6 +344,7 @@ public:
                                                        const double p_Epsilon) { }                                                                                                  // Default is NO-OP
 
     virtual void            UpdateMinimumCoreMass() { }                                                                                                                             // Only set minimal core mass following Main Sequence mass transfer to MS age fraction of TAMS core mass; default is NO-OP
+    virtual void            UpdateMinimumCoreMass(double p_Mdot) { }
 
     
     // printing functions
@@ -404,6 +406,8 @@ protected:
     double                  m_CoreMass;                                 // Current core mass (Msol)
     double                  m_Dt;                                       // Size of current timestep (Myr)
     bool                    m_EnvelopeJustExpelledByPulsations;         // Flag to know if the convective envelope has just been expelled by pulsations
+    double                  m_MixingCoreMass;
+    double                  m_CentralHeliumFraction;
     double                  m_HeCoreMass;                               // Current He core mass (Msol)
     bool                    m_LBVphaseFlag;                             // Flag to know if the star satisfied the conditions, at any point in its evolution, to be considered a Luminous Blue Variable (LBV)
     double                  m_Luminosity;                               // Current luminosity (Lsol)
@@ -504,6 +508,7 @@ protected:
     virtual double              CalculateCOCoreMassOnPhase() const                                                      { return m_COCoreMass; }                                                    // Default is NO-OP
     
     virtual double              CalculateCoreMassAtPhaseEnd() const                                                     { return m_CoreMass; }                                                      // Default is NO-OP
+    virtual double              CalculateMainSequenceCoreMass(double p_Mdot)                                            { return m_MixingCoreMass; }
     static  double              CalculateCoreMassGivenLuminosity_Static(const double p_Luminosity, const DBL_VECTOR &p_GBParams);
     virtual double              CalculateCoreMassOnPhase() const                                                        { return m_CoreMass; }                                                      // Default is NO-OP
 
@@ -590,6 +595,8 @@ protected:
     virtual double              CalculateMassTransferRejuvenationFactor()                                               { return 1.0; }
 
             double              CalculateMaximumCoreMass(double p_Mass) const;
+    
+            double              CalculateMixingCoreMassAtZAMS(const double p_MZAMS);
 
             double              CalculateOmegaBreak() const;
 
