@@ -128,12 +128,12 @@ BaseStar::BaseStar(const unsigned long int p_RandomSeed,
     m_Age                                      = 0.0;                                               // ensure age = 0.0 at construction (rather than default initial value)
     m_Mass                                     = m_MZAMS;
     m_Mass0                                    = m_MZAMS;
-    m_MinimumCoreMass                          = 0.0;
-    m_MixingCoreMass                           = CalculateMixingCoreMassAtZAMS(m_MZAMS);
+    m_MinimumCoreMass                          = CalculateMixingCoreMassAtZAMS(m_MZAMS);
     m_CentralHeliumFraction                    = utils::MESAZAMSHeliumFractionByMetallicity(m_Metallicity);
     m_Luminosity                               = m_LZAMS;
     m_Radius                                   = m_RZAMS;
     m_Temperature                              = m_TZAMS;
+    m_TotalMassLossRate                        = DEFAULT_INITIAL_DOUBLE_VALUE;
 	m_ComponentVelocity						   = Vector3d();
 
     m_CoreMass                                 = DEFAULT_INITIAL_DOUBLE_VALUE;
@@ -2754,7 +2754,7 @@ double BaseStar::CalculateMassLossRate() {
 
         mDot = mDot * OPTIONS->OverallWindMassLossMultiplier();                                                     // apply overall wind mass loss multiplier
     }
-
+    UpdateTotalMassLossRate(mDot);
     return mDot;
 }
 
@@ -2891,8 +2891,18 @@ void BaseStar::ResolveMassLoss(const bool p_UpdateMDt) {
 
 
 double BaseStar::CalculateMixingCoreMassAtZAMS(const double p_MZAMS) {
-    double fmix = SHIKAUCHI_FMIX_COEFFICIENTS[0][0] + SHIKAUCHI_FMIX_COEFFICIENTS[0][1] * std::exp(-p_MZAMS / SHIKAUCHI_FMIX_COEFFICIENTS[0][2]);
-    return fmix * p_MZAMS;
+    switch (OPTIONS->MainSequenceCoreMassPrescription()) {
+        case CORE_MASS_PRESCRIPTION::MANDEL: {
+            return 0.0;
+        }
+        case CORE_MASS_PRESCRIPTION::NONE: {
+            return 0.0;
+        }
+        case CORE_MASS_PRESCRIPTION::SHIKAUCHI: {
+            double fmix = SHIKAUCHI_FMIX_COEFFICIENTS[0][0] + SHIKAUCHI_FMIX_COEFFICIENTS[0][1] * std::exp(-p_MZAMS / SHIKAUCHI_FMIX_COEFFICIENTS[0][2]);
+            return fmix * p_MZAMS;
+        }
+    }
 }
 
 
@@ -3126,6 +3136,12 @@ void BaseStar::UpdateMassTransferDonorHistory() {
     else if (!utils::IsOneOf(m_StellarType, { m_MassTransferDonorHistory.back() })) {   // first MT as current stellar type?
         m_MassTransferDonorHistory.push_back(m_StellarType);                            // yes - new event
     }
+}
+
+
+void BaseStar::UpdateTotalMassLossRate(const double p_MassLossRate) {
+    //m_TotalMassLossRatePrev = m_TotalMassLossRate;
+    m_TotalMassLossRate = p_MassLossRate;
 }
 
 
@@ -4607,16 +4623,9 @@ STELLAR_TYPE BaseStar::EvolveOnPhase(const double p_DeltaTime) {
         m_COCoreMass      = CalculateCOCoreMassOnPhase();
         m_CoreMass        = CalculateCoreMassOnPhase();
         m_HeCoreMass      = CalculateHeCoreMassOnPhase();
-        
-        if (m_StellarType == STELLAR_TYPE::MS_GT_07 & m_DtPrev != 0.0 & m_MassPrev - m_Mass != 0.0) {
-            m_MixingCoreMass  = CalculateMainSequenceCoreMass((m_MassPrev - m_Mass) / (m_DtPrev * 1000000.0));
-            //std::cout << m_Time << ":" << m_CentralHeliumFraction << ":" << m_MixingCoreMass << "     ";
-            //std::cout << m_Mass << ":" << m_CentralHeliumFraction << "   ";
-            //UpdateMinimumCoreMass(m_Mdot);
-            //std::cout << m_MixingCoreMass << "   ";
-            //m_CoreMass = CalculateMainSequenceCoreMass(m_Mdot);
-            //_HeCoreMass = m_CoreMass;
-            //std::cout << "MixCore:" << m_MixingCoreMass << " Mass:" << m_Mass << " Mdot:" <<(m_MassPrev - m_Mass) / (m_DtPrev * 1000000.0) << ":timestep" << m_DtPrev << " Yc:" << m_CentralHeliumFraction ;
+                
+        if (m_StellarType == STELLAR_TYPE::MS_GT_07 & p_DeltaTime > 0.0 & m_Mdot > 0.0) {
+            UpdateMinimumCoreMass();
         }
         
         m_Luminosity      = CalculateLuminosityOnPhase();
@@ -4669,15 +4678,7 @@ STELLAR_TYPE BaseStar::ResolveEndOfPhase(const bool p_ResolveEnvelopeLoss) {
             m_COCoreMass  = CalculateCOCoreMassAtPhaseEnd();
             m_CoreMass    = CalculateCoreMassAtPhaseEnd();
             m_HeCoreMass  = CalculateHeCoreMassAtPhaseEnd();
-            if (m_StellarType == STELLAR_TYPE::MS_GT_07) {
-                //m_MixingCoreMass  = CalculateMainSequenceCoreMass(m_Mdot);
-                //m_CoreMass = m_MixingCoreMass;
-                //m_HeCoreMass = m_MixingCoreMass;
-                //std::cout << m_MixingCoreMass << "   ";
-                std::cout << "MixCore:" << m_MixingCoreMass << " Mass:" << m_Mass << " Mdot:" <<(m_MassPrev - m_Mass) / (m_DtPrev * 1000000.0) << ":timestep" << m_DtPrev << " Yc:" << m_CentralHeliumFraction << "  TimePassed:"  << m_Time;
 
-            }
-            
             m_Luminosity  = CalculateLuminosityAtPhaseEnd();
 
             m_Radius      = CalculateRadiusAtPhaseEnd();

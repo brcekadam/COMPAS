@@ -354,6 +354,7 @@ void BaseBinaryStar::SetRemainingValues() {
 
 	m_MassTransferTrackerHistory                     = MT_TRACKING::NO_MASS_TRANSFER;
     m_MassTransfer                                   = false;
+    m_MassLossRateInRLOF                             = DEFAULT_INITIAL_DOUBLE_VALUE;
 
     m_JLoss                                          = OPTIONS->MassTransferJloss();
 
@@ -2030,6 +2031,8 @@ void BaseBinaryStar::CalculateMassTransfer(const double p_Dt) {
                 if (utils::Compare(m_MassLossRateInRLOF,donorMassLossRateNuclear) == 0)                                         // if transferring mass on nuclear timescale, limit mass loss amount to rate * timestep (thermal timescale MT always happens in one timestep)
                     massDiffDonor = std::min(massDiffDonor, m_MassLossRateInRLOF * m_Dt);
                 massDiffDonor = -massDiffDonor;                                                                                 // set mass difference
+                
+                m_Donor->UpdateTotalMassLossRate(-massDiffDonor / (p_Dt * 1000000.0));
                 m_Donor->UpdateMinimumCoreMass();                                                                               // reset the minimum core mass following case A
             }
         }
@@ -2075,7 +2078,9 @@ void BaseBinaryStar::CalculateMassTransfer(const double p_Dt) {
 void BaseBinaryStar::InitialiseMassTransfer() {
 
 	m_MassTransferTrackerHistory = MT_TRACKING::NO_MASS_TRANSFER;	                                                            // Initiating flag, every timestep, to NO_MASS_TRANSFER. If it undergoes to MT or CEE, it should change.
-
+    
+    m_MassLossRateInRLOF = 0.0;
+    
     m_Star1->InitialiseMassTransfer(m_CEDetails.CEEnow, m_SemiMajorAxis, m_Eccentricity);                                       // initialise mass transfer for star1
     m_Star2->InitialiseMassTransfer(m_CEDetails.CEEnow, m_SemiMajorAxis, m_Eccentricity);                                       // initialise mass transfer for star2
     

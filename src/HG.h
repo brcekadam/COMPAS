@@ -69,8 +69,7 @@ protected:
         }
         m_CoreMass   = CalculateCoreMassOnPhase();
         m_COCoreMass = CalculateCOCoreMassOnPhase();
-        //m_HeCoreMass = CalculateHeCoreMassOnPhase();
-        m_HeCoreMass = m_MixingCoreMass;
+        m_HeCoreMass = CalculateHeCoreMassOnPhase();
         m_Luminosity = CalculateLuminosityOnPhase();
 
         std::tie(m_Radius, std::ignore) = CalculateRadiusAndStellarTypeOnPhase();                                                                                               // Update radius
