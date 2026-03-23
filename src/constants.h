@@ -197,6 +197,10 @@ constexpr double YSOL_ASPLUND                           = 0.2485;               
 constexpr double TSOL                                   = 5778.0;                                                   // Solar Temperature in kelvin
 constexpr double LSOL                                   = 3.844E33;                                                 // Solar Luminosity in erg/s
 constexpr double LSOLW                                  = 3.844E26;                                                 // Solar luminosity (in W)
+constexpr double B_FIELD_SOLAR                          = 1.0;                                                      // Solar surface magnetic field strength in Gauss
+constexpr double OMEGA_SOLAR                            = 2.6E-6;                                                   // Solar angular frequency in rad/s
+constexpr double T_CONV_SOLAR                           = 2.8E6;                                                    // Solar convective turnover time in s
+constexpr double MDOT_SOLAR                             = -4.8E-14;                                                 // Solar mass loss rate in Msun/yr from Pitjeva+2021
 
 constexpr double AU                                     = 149597870700.0;                                           // 1 AU (Astronomical Unit) in metres
 constexpr double KM                                     = 1000.0;                                                   // 1 km (Kilometre) in metres
@@ -300,6 +304,14 @@ constexpr double TIDES_OMEGA_SEARCH_FACTOR_FRAC         = 1.0;                  
 constexpr double TIDES_MINIMUM_FRACTIONAL_EXTENT        = 1.0E-4;                                                   // Minimum fractional radius or mass of the stellar core or envelope, above which a given tidal dissipation mechanism is considered applicable
 constexpr double TIDES_MAXIMUM_ORBITAL_CHANGE_FRAC      = 0.01;                                                     // Maximum allowed change in orbital and spin properties due to KAPIL2026 tides in a single timestep - 1% expressed as a fraction
 constexpr double TIDES_MINIMUM_FRACTIONAL_NUCLEAR_TIME  = 0.001;                                                    // Minimum allowed timestep from tidal processes, as a fraction of the nuclear minimum time scale
+
+constexpr double GAMMA_MB_RAPPAPORT                     = 4.0;                                                      // Exponent in the Rappaport+1983 magnetic braking prescription, calibrated by Gossage+2023
+constexpr double A_MB_GARRAFFO                          = 0.03;                                                     // Coefficient used in the Garraffo+2018 magnetic braking prescription, calibrated by Gossage+2023
+constexpr double B_MB_GARRAFFO                          = 0.5;                                                      // Coefficient used in the Garraffo+2018 magnetic braking prescription, calibrated by Gossage+2023
+constexpr double C_MB_GARRAFFO                          = 3.0E41;                                                   // Coefficient (in cm g^2) used in the Garraffo+2018 magnetic braking prescription, calibrated by Gossage+2023
+constexpr double K2_CARB                                = 0.07;                                                     // Coefficient used in Van & Ivanova 2019 magnetic braking prescription
+constexpr double A_CARB                                 = 10.0;                                                     // Coefficient defined in Gossage+2023 for the CARB magnetic braking prescription
+constexpr double P_CARB                                 = 1.3;                                                      // Exponent defined in Gossage+2023 for the CARB magnetic braking prescription
 
 constexpr double FARMER_PPISN_UPP_LIM_LIN_REGIME        = 38.0;                                                     // Maximum CO core mass to result in the linear remnant mass regime of the FARMER PPISN prescription
 constexpr double FARMER_PPISN_UPP_LIM_QUAD_REGIME       = 60.0;                                                     // Maximum CO core mass to result in the quadratic remnant mass regime of the FARMER PPISN prescription

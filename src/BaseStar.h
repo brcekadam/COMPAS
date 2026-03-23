@@ -208,6 +208,8 @@ public:
     // member functions - alphabetically
             void            ApplyMassTransferRejuvenationFactor()                                               { m_Age *= CalculateMassTransferRejuvenationFactor(); }             // Apply age rejuvenation factor
     
+            double          CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass, const double p_Radius, const double p_Omega, const double p_AngularMomentum, const double p_Dt) const;
+
             double          CalculateBindingEnergy(const double p_CoreMass, const double p_EnvMass, const double p_Radius, const double p_Lambda) const;
 
     virtual double          CalculateConvectiveCoreMass() const {return 0.0;}
@@ -230,6 +232,8 @@ public:
             double          CalculateEddingtonLuminosity() const                                                { return CalculateEddingtonLuminosity_Static(m_Mass, m_HeliumAbundanceSurface); } // Use class member variables
     
             double          CalculateEddyTurnoverTimescale() const;
+
+            double          CalculateConvectiveTurnoverTimescaleWright(const double p_Mass) const;
     
     virtual void            CalculateGBParams(const double p_Mass, DBL_VECTOR &p_GBParams) { }                                                                                      // Default is NO-OP
     virtual void            CalculateGBParams()                                                                 { CalculateGBParams(m_Mass0, m_GBParams); }                         // Use class member variables

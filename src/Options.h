@@ -655,6 +655,7 @@ private:
         "logfile-system-parameters-record-types",
         "logfile-type",
 
+        "magnetic-braking-prescription",
         "main-sequence-core-mass-prescription",
         "maltsev-mode",
         "mass-change-fraction",
@@ -1052,6 +1053,8 @@ public:
             double                                              m_LuminosityToMassThreshold;                                    // Threshold value of log_10(L/M) above which the convective envelope is expelled in a pulsation
         
             bool                                                m_RetainCoreMassDuringCaseAMassTransfer;                        // Whether to retain the approximate core mass of a case A donor as a minimum core at end of MS or HeMS (default = false)
+
+            ENUM_OPT<MAGNETIC_BRAKING_PRESCRIPTION>             m_MagneticBrakingPrescription;                                  // Which magnetic braking prescription
 
             ENUM_OPT<CORE_MASS_PRESCRIPTION>                    m_MainSequenceCoreMassPrescription;                             // Which MS core prescription
         
@@ -1592,6 +1595,8 @@ public:
     double                                      LuminousBlueVariableFactor() const                                      { return OPT_VALUE("luminous-blue-variable-multiplier", m_LuminousBlueVariableFactor, true); }
     LBV_MASS_LOSS_PRESCRIPTION                  LBVMassLossPrescription() const                                         { return OPT_VALUE("LBV-mass-loss-prescription", m_LBVMassLossPrescription.type, true); }
     
+    MAGNETIC_BRAKING_PRESCRIPTION               MagneticBrakingPrescription() const                                     { return OPT_VALUE("magnetic-braking-prescription", m_MagneticBrakingPrescription.type, true); }
+
     CORE_MASS_PRESCRIPTION                      MainSequenceCoreMassPrescription() const                                { return OPT_VALUE("main-sequence-core-mass-prescription", m_MainSequenceCoreMassPrescription.type, true); }
 
     double                                      MaltsevFallback() const                                                 { return OPT_VALUE("maltsev-fallback", m_MaltsevFallback, true); }

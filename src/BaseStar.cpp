@@ -2642,7 +2642,12 @@ void BaseStar::ResolveMassLoss(double p_Dt) {
                                                                                                     // yes
         double mass = CalculateMassLossValues(p_Dt, true);                                          // calculate new values assuming mass loss applied
 
-        double angularMomentumChange = (2.0 / 3.0) * (mass - m_Mass) * m_Radius * RSOL_TO_AU * m_Radius * RSOL_TO_AU * Omega();
+        double angularMomentumChange = 0.0;
+
+        if ((OPTIONS->MagneticBrakingPrescription() != MAGNETIC_BRAKING_PRESCRIPTION::NONE) && (utils::Compare(m_Mass, 1.4) < 0) && (utils::Compare(m_Mass, 0.35) > 0))
+            angularMomentumChange = CalculateMagneticBrakingAngularMomentumLoss(m_Mass, m_Radius, Omega(), m_AngularMomentum, p_Dt);
+        else 
+            angularMomentumChange = (2.0 / 3.0) * (mass - m_Mass) * m_Radius * RSOL_TO_AU * m_Radius * RSOL_TO_AU * Omega();
                 
         // JR: this is here to keep attributes in sync BSE vs SSE
         // Supernovae are caught in UpdateAttributesAndAgeOneTimestep()
@@ -3549,6 +3554,139 @@ DBL_DBL_DBL_DBL BaseStar::CalculateImKnmTidal(const double p_Omega, const double
 }
 
 
+/*
+ * Calculate angular momentum lost via magnetic braking
+ *
+ * double CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass, const double p_Radius, const double p_Omega, const double p_AngularMomentum, const double p_Dt)
+ *
+ * @param   [IN]    p_Mass                      Stellar mass in Mun
+ * @param   [IN]    p_Radius                    Stellar radius in Rsun
+ * @param   [IN]    p_Omega                     Angular frequency in rad yr^-1
+ * @param   [IN]    p_AngularMomentum           Angular momentum of the star in Msun AU^2 yr^-1
+ * @param   [IN]    p_Dt                        Timestep in Myr
+ * @return                                      Angular momentum lost from the star due to magnetic breaking in Msun AU^2 yr^-1
+ */
+double BaseStar::CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass, const double p_Radius, const double p_Omega, const double p_AngularMomentum, const double p_Dt) const {
+
+    double angularMomentumChange = 0.0;
+
+    switch (OPTIONS->MagneticBrakingPrescription()) {                                               // which prescription?
+
+        // no magnetic braking
+        case MAGNETIC_BRAKING_PRESCRIPTION::NONE: {                                                
+            angularMomentumChange = 0.0;
+            break;
+        }
+
+        // magnetic braking prescription from Rappaport+1983, calibrated by Gossage+2023
+        case MAGNETIC_BRAKING_PRESCRIPTION::RAPPAPORT: {
+
+            // convert to CGS units
+            double I_CGS        = CalculateMomentOfInertiaAU() * MSOL_TO_G * AU_TO_CM * AU_TO_CM;
+            double mass_CGS     = p_Mass * MSOL_TO_G;
+            double timestep_CGS = p_Dt * SECONDS_IN_MYR;
+
+            // Rsun[cm]^4
+            double Rsun4 = RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM;
+            
+            controlled_stepper_type controlled_stepper;
+            state_type x(1);
+            x[0] = p_AngularMomentum * MSOL_TO_G * AU_TO_CM * AU_TO_CM / SECONDS_IN_YEAR;
+            auto ode = [&](const state_type &x, state_type &dxdt, const double) {
+                // angular frequency in rad/s
+                double Omega = x[0] / I_CGS;                                     
+                // Eq. (36) from Rappaport+1983, all values need to be in CGS units
+                dxdt[0] = -3.8E-30 * mass_CGS * Rsun4 * PPOW(p_Radius, GAMMA_MB_RAPPAPORT) * Omega * Omega * Omega;                            
+            };
+            integrate_adaptive(controlled_stepper, ode, x, 0.0, timestep_CGS, timestep_CGS / 100.0);
+
+            // angular momentum converted back to Msun AU^2 yr^1
+            double angularMomentumFinal = x[0] / (MSOL_TO_G * AU_TO_CM * AU_TO_CM) * SECONDS_IN_YEAR;
+            // change of angular momentum during the timestep
+            angularMomentumChange = angularMomentumFinal - p_AngularMomentum;
+            
+            break;
+        }
+
+        // magnetic braking prescription from Garraffo+2018, calibrated by Gossage+2023
+        case MAGNETIC_BRAKING_PRESCRIPTION::GARRAFFO: {
+            
+            double tConv            = CalculateConvectiveTurnoverTimescaleWright(p_Mass) / DAYS_IN_YEAR;
+            double timestepYr       = p_Dt * MYR_TO_YEAR;
+            // factor that converts g cm^2 to Msun AU^2
+            double conversionFactor = 1.0 / (AU_TO_CM * AU_TO_CM * MSOL_TO_G);                              
+
+            // Use boost adaptive ODE solver
+            controlled_stepper_type controlled_stepper;
+            state_type x(1);
+            x[0] = p_AngularMomentum;
+            double I = CalculateMomentOfInertiaAU();
+            auto ode = [&](const state_type &x, state_type &dxdt, const double) {
+                double Omega = x[0] / I;                                                                    // angular frequency
+                double Ro    = (_2_PI / Omega) / tConv;                                                     // Rossby number
+                double n     = A_MB_GARRAFFO / Ro + B_MB_GARRAFFO * Ro + 1.0;                               // magnetic complexity number, Eq. (5) from Garraffo+2018
+                double Q_J   = 4.05 * exp(-1.4 * n);                                                        // scaling factor, Eq. (4) 
+                dxdt[0]      = -C_MB_GARRAFFO * conversionFactor * Omega * Omega * Omega * tConv * Q_J;     // Eq. (1) from Garraffo+2018
+                          
+            };
+            integrate_adaptive(controlled_stepper, ode, x, 0.0, timestepYr, timestepYr / 100.0);
+            
+            // change of angular momentum during the timestep
+            angularMomentumChange = x[0] - p_AngularMomentum;
+
+            break;
+        }
+
+        // magnetic braking prescription from Van & Ivanova 2019, calibrated by Gossage+2023
+        case MAGNETIC_BRAKING_PRESCRIPTION::CARB: {
+
+            double tConv = CalculateConvectiveTurnoverTimescaleWright(p_Mass) * SECONDS_IN_DAY;
+            
+            // convert to CGS units
+            double timestep_CGS = p_Dt * SECONDS_IN_MYR;
+            double I_CGS        = CalculateMomentOfInertiaAU() * MSOL_TO_G * AU_TO_CM * AU_TO_CM;
+            double radius_CGS   = p_Radius * RSOL_TO_CM;
+            double mass_CGS     = p_Mass * MSOL_TO_G;
+            double mdot_CGS     = std::abs(MDOT_SOLAR) * MSOL_TO_G / SECONDS_IN_YEAR;                       // here we assume solar mass loss rate
+            double vesc_2       = 2.0 * G_CGS * mass_CGS / radius_CGS;
+
+            controlled_stepper_type controlled_stepper;
+            state_type x(1);
+            x[0] = p_AngularMomentum * MSOL_TO_G * AU_TO_CM * AU_TO_CM / SECONDS_IN_YEAR;
+            auto ode = [&](const state_type &x, state_type &dxdt, const double) {
+                // angular frequency in rad/s
+                double Omega = x[0] / I_CGS;       
+                double magnetocentrifugalCorrection = PPOW(vesc_2 + 2.0 * Omega * Omega * radius_CGS * radius_CGS / (K2_CARB * K2_CARB), -2.0 / 3.0);
+                // Eq. (12) from Gossage+2023, based on Eq. (6) from Van & Ivanova 2019
+                // note that Mdot exponent should be -1/3 and vesc should be squared in the equation 
+                dxdt[0] = - A_CARB * (2.0 / 3.0) * PPOW(mdot_CGS , -1.0 / 3.0) * PPOW(radius_CGS, 14.0 / 3.0) * magnetocentrifugalCorrection * OMEGA_SOLAR *
+                            PPOW(B_FIELD_SOLAR, P_CARB) * PPOW(Omega / OMEGA_SOLAR, P_CARB + 1.0) * PPOW(tConv / T_CONV_SOLAR, P_CARB);                    
+            };
+            integrate_adaptive(controlled_stepper, ode, x, 0.0, timestep_CGS, timestep_CGS / 100.0);
+
+            // angular momentum converted back to Msun AU^2 yr^1
+            double angularMomentumFinal = x[0] / (MSOL_TO_G * AU_TO_CM * AU_TO_CM) * SECONDS_IN_YEAR;
+            // change of angular momentum during the timestep
+            angularMomentumChange = angularMomentumFinal - p_AngularMomentum;
+
+            break;
+        }
+
+        default:                                                                                    // unknown prescription
+            // the only way this can happen is if someone added a MAGNETIC_BRAKING_PRESCRIPTION
+            // and it isn't accounted for in this code.  We should not default here, with or without a warning.
+            // We are here because the user chose a prescription this code doesn't account for, and that should
+            // be flagged as an error and result in termination of the evolution of the star or binary.
+            // The correct fix for this is to add code for the missing prescription or, if the missing
+            // prescription is superfluous, remove it from the option.
+
+            THROW_ERROR(ERROR::UNKNOWN_MAGNETIC_BRAKING_PRESCRIPTION);                              // throw error
+    }
+    
+    return angularMomentumChange;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //                                                                                   //
 //                            LIFETIME / AGE CALCULATIONS                            //
@@ -3738,6 +3876,22 @@ double BaseStar::CalculateEddyTurnoverTimescale() const {
     double mEnv, mEnvmax;
     std::tie(mEnv, mEnvmax) = CalculateConvectiveEnvelopeMass();
     return 0.4311 * cbrt((mEnv * rEnv * (m_Radius - (0.5 * rEnv))) / (3.0 * m_Luminosity));
+}
+
+
+/*
+* Calculate the convective turnover timescale from Wright+2018, Eq. 6
+* Valid only for MS stars with masses between 0.08 and 1.36 Msun
+*
+*
+* double CalculateConvectiveTurnoverTimescaleWright(const double p_Mass)
+*
+* @return                                       convective turnover timescale in days
+*/
+double BaseStar::CalculateConvectiveTurnoverTimescaleWright(const double p_Mass) const {
+
+    double log_timescale = 2.33 - 1.5 * p_Mass + 0.31 * p_Mass * p_Mass;
+    return PPOW(10.0, log_timescale);
 }
 
 

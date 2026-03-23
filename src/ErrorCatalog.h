@@ -168,6 +168,7 @@ enum class ERROR: int {
     UNKNOWN_KICK_MAGNITUDE_DISTRIBUTION,                            // unknown kick magnitude distribution
     UNKNOWN_LOGFILE,                                                // unknown log file
     UNKNOWN_LBV_MASS_LOSS_PRESCRIPTION,                             // unknown LBV mass loss prescription
+    UNKNOWN_MAGNETIC_BRAKING_PRESCRIPTION,                          // unknown magnetic braking prescription
     UNKNOWN_MALTSEV_MODE,                                           // unknown maltsev mode 
     UNKNOWN_MT_ACCRETION_EFFICIENCY_PRESCRIPTION,                   // unknown mass transfer accretion efficiency prescription
     UNKNOWN_MT_ANGULAR_MOMENTUM_LOSS_PRESCRIPTION,                  // unknown mass transfer angular momentum loss prescription
