@@ -2545,10 +2545,10 @@ void BaseBinaryStar::CalculateEnergyAndAngularMomentum() {
  * Calculate total energy and angular momentum of binary after mass changes
  *
  *
- * void ResolveMassChanges()
+ * void ResolveMassChanges(const double p_Dt)
  *
  */
-void BaseBinaryStar::ResolveMassChanges() {
+void BaseBinaryStar::ResolveMassChanges(const double p_Dt) {
 
     STELLAR_TYPE stellarType1 = m_Star1->StellarTypePrev();                                             // star 1 stellar type before updating attributes
     STELLAR_TYPE stellarType2 = m_Star2->StellarTypePrev();                                             // star 2 stellar type before updating attributes
@@ -2565,8 +2565,12 @@ void BaseBinaryStar::ResolveMassChanges() {
         if (utils::Compare(massChange, 0.0) != 0) {                                                     // winds/mass transfer changes mass?
             // yes - calculate new angular momentum
             if(utils::Compare(massChange, 0.0) < 0) {
-                double angularMomentumChangeStar = (2.0 / 3.0) * massChange * m_Star1->Radius() * RSOL_TO_AU * m_Star1->Radius() * RSOL_TO_AU * m_Star1->Omega();
-                extraAngularMomentumChangeOrbit -= angularMomentumChangeStar;
+                double angularMomentumChangeStar = 0.0;
+                // when magnetic braking is applied, AM change is not calculated here
+                if (!m_Star1->ShouldApplyMagneticBraking(m_Star1->MassTransferDiff() != 0.0)) {
+                    angularMomentumChangeStar = (2.0 / 3.0) * massChange * m_Star1->Radius() * RSOL_TO_AU * m_Star1->Radius() * RSOL_TO_AU * m_Star1->Omega();
+                    extraAngularMomentumChangeOrbit -= angularMomentumChangeStar;
+                }
                 // update mass of star according to mass loss and mass transfer, then update age accordingly
                 (void)m_Star1->UpdateAttributes(massChange, 0.0);                                       // update mass for star
                 m_Star1->UpdateInitialMass();                                                           // update effective initial mass of star (MS, HG & HeMS)
@@ -2590,8 +2594,12 @@ void BaseBinaryStar::ResolveMassChanges() {
         if (utils::Compare(massChange, 0.0) != 0) {                                                     // winds/mass transfer changes mass?
             // yes - calculate new angular momentum; assume accretor is adding angular momentum from a circular orbit at the stellar radius
             if(utils::Compare(massChange, 0.0) < 0) {
-                double angularMomentumChangeStar = (2.0 / 3.0) * massChange * m_Star2->Radius() * RSOL_TO_AU * m_Star2->Radius() * RSOL_TO_AU * m_Star2->Omega();
-                extraAngularMomentumChangeOrbit -= angularMomentumChangeStar;
+                double angularMomentumChangeStar = 0.0;
+                // when magnetic braking is applied, AM change is not calculated here
+                if (!m_Star2->ShouldApplyMagneticBraking(m_Star2->MassTransferDiff() != 0.0)) {
+                    angularMomentumChangeStar = (2.0 / 3.0) * massChange * m_Star2->Radius() * RSOL_TO_AU * m_Star2->Radius() * RSOL_TO_AU * m_Star2->Omega();
+                    extraAngularMomentumChangeOrbit -= angularMomentumChangeStar;
+                }
                 // update mass of star according to mass loss and mass transfer, then update age accordingly
                 (void)m_Star2->UpdateAttributes(massChange, 0.0);                                       // update mass for star
                 m_Star2->UpdateInitialMass();                                                           // update effective initial mass of star (MS, HG & HeMS)
@@ -2604,6 +2612,18 @@ void BaseBinaryStar::ResolveMassChanges() {
             if(utils::Compare(massChange, 0.0) > 0)                                                     // check if star has super-Keplerian angular momentum after mass gain and adjust orbit
                 extraAngularMomentumChangeOrbit += ResolveAccretionAngularMomentumGain(m_Star2, m_Star1, massChange);
         }
+    }
+
+    // apply magnetic braking if applicable, note that we let the tides handle the orbital changes,
+    // also note that we do not calculate mass loss rates for low-mass stars, so massChange calculated above can be zero,
+    // but magnetic braking is important to consider even if mass loss rate is very small
+    if (m_Star1->ShouldApplyMagneticBraking(m_Star1->MassTransferDiff() != 0.0)) {
+        double angularMomentumChangeStar = m_Star1->CalculateMagneticBrakingAngularMomentumLoss(m_Star1->Mass(), m_Star1->Radius(), m_Star1->Omega(), m_Star1->AngularMomentum(), p_Dt);
+        m_Star1->SetAngularMomentum(m_Star1->AngularMomentum() + angularMomentumChangeStar);
+    }
+    if (m_Star2->ShouldApplyMagneticBraking(m_Star2->MassTransferDiff() != 0.0)) {
+        double angularMomentumChangeStar = m_Star2->CalculateMagneticBrakingAngularMomentumLoss(m_Star2->Mass(), m_Star2->Radius(), m_Star2->Omega(), m_Star2->AngularMomentum(), p_Dt);
+        m_Star2->SetAngularMomentum(m_Star2->AngularMomentum() + angularMomentumChangeStar);
     }
 
     // update binary separation, but only if semimajor axis not already infinite and binary does not contain a massless remnant
@@ -3298,7 +3318,7 @@ void BaseBinaryStar::EvaluateBinary(const double p_Dt) {
         }
     }
     else {
-        ResolveMassChanges();                                                                                           // apply mass loss and mass transfer as necessary
+        ResolveMassChanges(p_Dt);                                                                                       // apply mass loss and mass transfer as necessary
         (void)PrintDetailedOutput(m_Id, BSE_DETAILED_RECORD_TYPE::POST_MASS_RESOLUTION);                                // print (log) detailed output
 
         if (HasStarsTouching()) {                                                                                       // if stars emerged from mass transfer as touching, it's a merger

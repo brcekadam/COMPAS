@@ -175,6 +175,12 @@ public:
     DBL_DBL_DBL_DBL CalculateImKnmEquilibrium(const double p_Omega, const double p_SemiMajorAxis, const double p_M2){ return m_Star->CalculateImKnmEquilibrium(p_Omega, p_SemiMajorAxis, p_M2); }
     DBL_DBL_DBL_DBL CalculateImKnmTidal(const double p_Omega, const double p_SemiMajorAxis, const double p_M2)      { return m_Star->CalculateImKnmTidal(p_Omega, p_SemiMajorAxis, p_M2); }
 
+    double          CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass,
+                                                                const double p_Radius,
+                                                                const double p_Omega,
+                                                                const double p_AngularMomentum,
+                                                                const double p_Dt)                                  { return m_Star->CalculateMagneticBrakingAngularMomentumLoss(p_Mass, p_Radius, p_Omega, p_AngularMomentum, p_Dt); }
+
     DBL_DBL         CalculateMassAcceptanceRate(const double p_DonorMassRate, 
                                                 const double p_AccretorMassRate,
                                                 const bool   p_IsHeRich)                                            { return m_Star->CalculateMassAcceptanceRate(p_DonorMassRate, p_AccretorMassRate, p_IsHeRich); }
@@ -249,6 +255,8 @@ public:
 
     void            SetSNCurrentEvent(const SN_EVENT p_SNEvent)                                                     { m_Star->SetSNCurrentEvent(p_SNEvent); }
     void            SetSNPastEvent(const SN_EVENT p_SNEvent)                                                        { m_Star->SetSNPastEvent(p_SNEvent); }
+
+    bool            ShouldApplyMagneticBraking(const bool p_InMassTransfer) const                                   { return m_Star->ShouldApplyMagneticBraking(p_InMassTransfer); }
 
     double     	    SN_KickMagnitude()       									                                    { return m_Star->SN_KickMagnitude() ; }
     double     	    SN_RocketKickMagnitude()       									                                { return m_Star->SN_RocketKickMagnitude(); }

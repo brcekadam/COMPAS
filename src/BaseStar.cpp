@@ -999,6 +999,43 @@ double BaseStar::CalculatePerturbationR(const double p_Mu, const double p_Mass, 
 }
 
 
+/*
+ * Determine if magnetic braking should be applied
+ *
+ * bool ShouldApplyMagneticBraking(const bool p_InMassTransfer)
+ *
+ * @param   [IN]    p_InMassTransfer                Is star in a mass transfer episode (true/false)
+ * @return                                          Bool saying whether magnetic braking should be applied
+ */
+bool BaseStar::ShouldApplyMagneticBraking(const bool p_InMassTransfer) const {
+
+    bool shouldApply = false;
+
+    if ((OPTIONS->MagneticBrakingPrescription() != MAGNETIC_BRAKING_PRESCRIPTION::NONE)     // MB prescription is selected
+     && IsOneOf(MAIN_SEQUENCE)                                                              // star must be on the MS
+     && !p_InMassTransfer) {                                                                // no MB during mass transfer
+
+        // mass range validity depends on prescription:
+        // GARRAFFO applicable to fully convective stars
+        // RAPPAPORT and CARB do not work for fully convective stars, MB not applied below 0.35 Msol
+        switch (OPTIONS->MagneticBrakingPrescription()) {
+            case MAGNETIC_BRAKING_PRESCRIPTION::GARRAFFO:
+                shouldApply = (utils::Compare(m_Mass, 0.08) >= 0) && (utils::Compare(m_Mass, 1.2) <= 0);
+                break;
+            case MAGNETIC_BRAKING_PRESCRIPTION::RAPPAPORT:
+                shouldApply = (utils::Compare(m_Mass, 0.35) >= 0) && (utils::Compare(m_Mass, 1.2) <= 0);
+                break;
+            case MAGNETIC_BRAKING_PRESCRIPTION::CARB:
+                shouldApply = (utils::Compare(m_Mass, 0.35) >= 0) && (utils::Compare(m_Mass, 1.2) <= 0);
+                break;
+            default: break;
+        }
+    }
+
+    return shouldApply;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //                                                                                   //
 //                                LAMBDA CALCULATIONS                                //
@@ -2644,7 +2681,7 @@ void BaseStar::ResolveMassLoss(double p_Dt) {
 
         double angularMomentumChange = 0.0;
 
-        if ((OPTIONS->MagneticBrakingPrescription() != MAGNETIC_BRAKING_PRESCRIPTION::NONE) && (utils::Compare(m_Mass, 1.4) < 0) && (utils::Compare(m_Mass, 0.35) > 0))
+        if (ShouldApplyMagneticBraking(false))
             angularMomentumChange = CalculateMagneticBrakingAngularMomentumLoss(m_Mass, m_Radius, Omega(), m_AngularMomentum, p_Dt);
         else 
             angularMomentumChange = (2.0 / 3.0) * (mass - m_Mass) * m_Radius * RSOL_TO_AU * m_Radius * RSOL_TO_AU * Omega();
@@ -3564,7 +3601,7 @@ DBL_DBL_DBL_DBL BaseStar::CalculateImKnmTidal(const double p_Omega, const double
  * @param   [IN]    p_Omega                     Angular frequency in rad yr^-1
  * @param   [IN]    p_AngularMomentum           Angular momentum of the star in Msun AU^2 yr^-1
  * @param   [IN]    p_Dt                        Timestep in Myr
- * @return                                      Angular momentum lost from the star due to magnetic breaking in Msun AU^2 yr^-1
+ * @return                                      Angular momentum lost from the star due to magnetic braking in Msun AU^2 yr^-1
  */
 double BaseStar::CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass, const double p_Radius, const double p_Omega, const double p_AngularMomentum, const double p_Dt) const {
 
@@ -3647,7 +3684,8 @@ double BaseStar::CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass
             double I_CGS        = CalculateMomentOfInertiaAU() * MSOL_TO_G * AU_TO_CM * AU_TO_CM;
             double radius_CGS   = p_Radius * RSOL_TO_CM;
             double mass_CGS     = p_Mass * MSOL_TO_G;
-            double mdot_CGS     = std::abs(MDOT_SOLAR) * MSOL_TO_G / SECONDS_IN_YEAR;                       // here we assume solar mass loss rate
+            // we use mass loss rate scaling from Reimers+1975 (originally calibrated for giants, used here for low-mass MS stars)
+            double mdot_CGS = std::abs(MDOT_SOLAR) * p_Radius * m_Luminosity / p_Mass * MSOL_TO_G / SECONDS_IN_YEAR; 
             double vesc_2       = 2.0 * G_CGS * mass_CGS / radius_CGS;
 
             controlled_stepper_type controlled_stepper;

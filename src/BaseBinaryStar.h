@@ -502,7 +502,7 @@ private:
     void    ResolveCoalescence();
     void    ResolveCommonEnvelopeEvent();
     void    ResolveMainSequenceMerger();
-    void    ResolveMassChanges();
+    void    ResolveMassChanges(const double p_Dt);
     void    ResolveSupernova();
     
     
