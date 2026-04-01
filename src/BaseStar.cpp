@@ -3619,26 +3619,17 @@ double BaseStar::CalculateMagneticBrakingAngularMomentumLoss(const double p_Mass
         case MAGNETIC_BRAKING_PRESCRIPTION::RAPPAPORT: {
 
             // convert to CGS units
-            double I_CGS        = CalculateMomentOfInertiaAU() * MSOL_TO_G * AU_TO_CM * AU_TO_CM;
-            double mass_CGS     = p_Mass * MSOL_TO_G;
-            double timestep_CGS = p_Dt * SECONDS_IN_MYR;
+            double I_CGS               = CalculateMomentOfInertiaAU() * MSOL_TO_G * AU_TO_CM * AU_TO_CM;
+            double mass_CGS            = p_Mass * MSOL_TO_G;
+            double timestep_CGS        = p_Dt * SECONDS_IN_MYR;
+            double angularMomentum_CGS = p_AngularMomentum * MSOL_TO_G * AU_TO_CM * AU_TO_CM / SECONDS_IN_YEAR;
 
-            // Rsun[cm]^4
-            double Rsun4 = RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM;
-            
-            controlled_stepper_type controlled_stepper;
-            state_type x(1);
-            x[0] = p_AngularMomentum * MSOL_TO_G * AU_TO_CM * AU_TO_CM / SECONDS_IN_YEAR;
-            auto ode = [&](const state_type &x, state_type &dxdt, const double) {
-                // angular frequency in rad/s
-                double Omega = x[0] / I_CGS;                                     
-                // Eq. (36) from Rappaport+1983, all values need to be in CGS units
-                dxdt[0] = -3.8E-30 * mass_CGS * Rsun4 * PPOW(p_Radius, GAMMA_MB_RAPPAPORT) * Omega * Omega * Omega;                            
-            };
-            integrate_adaptive(controlled_stepper, ode, x, 0.0, timestep_CGS, timestep_CGS / 100.0);
-
+            // we use the integrated version of Eq. (36) from Rappaport+1983, all values need to be in CGS units,
+            // we assume that mass, moment of inertia, and radius stay constant over the timestep
+            double factor = 3.8E-30 * mass_CGS * RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM * RSOL_TO_CM * PPOW(p_Radius, GAMMA_MB_RAPPAPORT);
+            double angularMomentumFinal = angularMomentum_CGS / sqrt(1 + 2 * factor * angularMomentum_CGS * angularMomentum_CGS * timestep_CGS / (I_CGS * I_CGS * I_CGS));
             // angular momentum converted back to Msun AU^2 yr^1
-            double angularMomentumFinal = x[0] / (MSOL_TO_G * AU_TO_CM * AU_TO_CM) * SECONDS_IN_YEAR;
+            angularMomentumFinal = angularMomentumFinal / (MSOL_TO_G * AU_TO_CM * AU_TO_CM) * SECONDS_IN_YEAR;
             // change of angular momentum during the timestep
             angularMomentumChange = angularMomentumFinal - p_AngularMomentum;
             
